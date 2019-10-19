@@ -20,53 +20,62 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ListView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
 
 import java.io.IOException;
 import java.util.ArrayList;
 
-public class NumbersActivity extends AppCompatActivity implements AdapterView.OnItemClickListener, MediaPlayer.OnCompletionListener {
+public class NumbersFragment extends Fragment implements AdapterView.OnItemClickListener, MediaPlayer.OnCompletionListener {
 
-    private static final String TAG = "NumbersActivity";
+    private static final String TAG = "NumbersFragment";
 
-    /** Handles playback of all the sound files*/
+    /**
+     * Handles playback of all the sound files
+     */
     private MediaPlayer mMediaPlayer;
     final ArrayList<Word> words = new ArrayList<Word>();
 
-    /**Handles audio focus when playing a sound file*/
-    private  AudioManager mAudioManager;
+    /**
+     * Handles audio focus when playing a sound file
+     */
+    private AudioManager mAudioManager;
 
-AudioManager.OnAudioFocusChangeListener mOnAudioFocusChangeListener =
-        new AudioManager.OnAudioFocusChangeListener() {
-            @Override
-            public void onAudioFocusChange(int focusChange) {
-                if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ||
-                focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
-                    mMediaPlayer.pause();
-                    mMediaPlayer.seekTo(0);
+    AudioManager.OnAudioFocusChangeListener mOnAudioFocusChangeListener =
+            new AudioManager.OnAudioFocusChangeListener() {
+                @Override
+                public void onAudioFocusChange(int focusChange) {
+                    if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ||
+                            focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+                        mMediaPlayer.pause();
+                        mMediaPlayer.seekTo(0);
+                    } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
+                        mMediaPlayer.start();
+                        //The AUDIOFOCUS_GAIN case means we have regained and focus and can resume playback
+                    } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+                        // The AUDIOFOCUS_LOSS case means we've lost audio and stop playback and cleanup resources
+                        releaseMediaPlayer();
+
+                    }
                 }
-                else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-                    mMediaPlayer.start();
-                    //The AUDIOFOCUS_GAIN case means we have regained and focus and can resume playback
-                } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
-                    // The AUDIOFOCUS_LOSS case means we've lost audio and stop playback and cleanup resources
-                    releaseMediaPlayer();
+            };
 
-                }
-            }
-        };
-
+    @Nullable
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.word_list);
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+
+        View view = inflater.inflate(R.layout.word_list, container, false);
 
         // Create ans setup the {@link AudioManager} to request audio focus
-        mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        mAudioManager = (AudioManager) getActivity().getSystemService(Context.AUDIO_SERVICE);
 
         //Create a list of words
         words.add(new Word("one", "lutti", R.drawable.number_one, R.raw.number_one));
@@ -82,17 +91,19 @@ AudioManager.OnAudioFocusChangeListener mOnAudioFocusChangeListener =
 
         // Create an {@link WordAdapter}, whose data source is a list of {@link Word}s. The
         // adapter knows how to create layouts for each item in the list.
-        WordAdapter adapter = new WordAdapter(this, words, R.color.category_numbers);
+        WordAdapter adapter = new WordAdapter(getActivity(), words, R.color.category_numbers);
 
         // Find the {@link ListView} object in the view hierarchy of the {@link Activity}.
         // There should be a {@link ListView} with the view ID called list, which is declared in the
         // word_list.xml file.
-        ListView listView = findViewById(R.id.list);
+        ListView listView = view.findViewById(R.id.list);
 
         // Make the {@link ListView} use the {@link ArrayAdapter} we created above, so that the
         // {@link ListView} will display list items for each {@link Word} in the list.
         listView.setAdapter(adapter);
         listView.setOnItemClickListener(this);
+
+        return view;
     }
 
     @Override
@@ -113,7 +124,7 @@ AudioManager.OnAudioFocusChangeListener mOnAudioFocusChangeListener =
 
         if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
 
-            mMediaPlayer = MediaPlayer.create(NumbersActivity.this, current.getAudioResourceId());
+            mMediaPlayer = MediaPlayer.create(getActivity(), current.getAudioResourceId());
             mMediaPlayer.start();
 
             //Setup a listener on the media player, so that we can stop and release the media player once the sounds has finished playing.
@@ -122,7 +133,7 @@ AudioManager.OnAudioFocusChangeListener mOnAudioFocusChangeListener =
     }
 
     @Override
-    protected void onStop() {
+    public void onStop() {
         super.onStop();
         // When the activity is stopped, release the media player resources because we won't be playing any more sounds
         releaseMediaPlayer();
